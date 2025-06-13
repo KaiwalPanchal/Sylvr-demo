@@ -257,24 +257,6 @@ async def websocket_chat(
         summary = ""
         final_output = ""
 
-        # alpha = f"the name of table is {table_name}"
-        # # Execute an initial agent query before the main loop
-        # initial_query = Content(role="user", parts=[Part.from_text(text=alpha)])
-
-        # Run the agent with the initial query
-        # events = global_runner.run_async(
-        #     session_id=session_id,
-        #     user_id=session.user_id,
-        #     new_message=initial_query,
-        #     run_config=RunConfig(response_modalities=["TEXT"]),
-        # )
-
-        # # Consume the events to ensure the agent processes the query
-        # async for event in events:
-        #     if event.is_final_response():
-        #         print("✅ Message processed successfully.")
-        #         break  # Exit after confirming processing
-
         while True:
             try:
                 # print(f"User input for session {session_id}: {user_input.message}")
