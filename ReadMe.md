@@ -1,11 +1,3 @@
-# Chatbot Application
-
-This is a WebSocket-based chatbot application.  
-
-## 🟣 Installation
-
-1. **Clone the repository:**
-
 ```bash
 git clone <your-repo-url>
 cd <your-repo-name>
