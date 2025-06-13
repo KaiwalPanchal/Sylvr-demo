@@ -1,0 +1,24 @@
+# get_active_users.py
+from pymongo import MongoClient
+from dotenv import load_dotenv
+import os
+
+def get_active_users():
+    load_dotenv()
+    uri = os.getenv("MONGODB_URI")
+    if not uri:
+        raise ValueError("🔴 MONGODB_URI not found in .env")
+
+    client = MongoClient(uri)  # DO NOT pass port or other host args
+    db = client['sample_analytics']
+    users = db['users']
+    return list(users.find({ 'active': True }))
+
+if __name__ == "__main__":
+    try:
+        results = get_active_users()
+        print(f"✅ Found {len(results)} active users")
+        for u in results:
+            print(u)
+    except Exception as e:
+        print("Error:", e)

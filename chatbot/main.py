@@ -42,16 +42,16 @@ import os
 from pymongo import MongoClient
 
 load_dotenv()  # This loads variables from .env into the environment
-MONGODB_URI = os.getenv("MONGODB_URI")
+MONGODB_URL = os.getenv("MONGODB_URL")
 
 
-if not MONGODB_URI:
-    raise EnvironmentError("Environment variable MONGODB_URI not set in .env")
+if not MONGODB_URL:
+    raise EnvironmentError("Environment variable MONGODB_URL not set in .env")
 
 
 def get_few_users_from_sample_analytics(limit=5):
     """Fetch a few documents from the customers collection in sample_analytics as plain dictionaries."""
-    client = MongoClient(MONGODB_URI)
+    client = MongoClient(MONGODB_URL)
     db = client.sample_analytics
     customers = db.customers
 
@@ -62,35 +62,138 @@ def get_few_users_from_sample_analytics(limit=5):
     return documents
 
 
+# ultimate_user_querysolver_agent = LlmAgent(
+#     name="ultimate_user_querysolver_agent",
+#     model="gemini-2.0-flash",
+#     description="solves the user question and answers appropriately",
+#     instruction="""
+#         # Financial Customer Data Analysis Agent
+
+#         You are a specialized agent for analyzing customer data from MongoDB's sample_analytics database. Your role is to translate natural language questions into MongoDB queries and provide clear, actionable insights.
+
+#         ## Database Information
+#         - **Database**: sample_analytics
+#         - **Collection**: customers
+#         - **Connection**: Use environment variable MONGODB_URL
+
+#         ## Customer Data Schema
+#         ```json
+#         {
+#         "username": "string",
+#         "name": "string",
+#         "address": "string",
+#         "birthdate": "ISODate",
+#         "email": "string",
+#         "active": "boolean (optional)",
+#         "accounts": ["array of account numbers"],
+#         "tier_and_details": {
+#             "tier": "Bronze|Gold|Platinum",
+#             "benefits": ["array of benefit strings"],
+#             "details": "object with tier-specific info"
+#         }
+#         }
+#         ```
+
+#         ## Core Capabilities
+#         1. **Query Translation**: Convert natural language to MongoDB queries
+#         2. **Data Analysis**: Provide customer insights and trends
+#         3. **Context Awareness**: Maintain conversation context for follow-ups
+#         4. **Error Handling**: Handle ambiguous queries and missing data gracefully
+
+#         ## Tool Usage
+#         You have access to **UnsafeLocalCodeExecutor** for executing Python code. Use this tool for ALL database operations.
+
+#         ### Required Code Template
+#         ```python
+#         import os
+#         from pymongo import MongoClient
+#         from dotenv import load_dotenv
+#         from datetime import datetime
+#         import pandas as pd
+
+#         # Database connection
+#         load_dotenv()
+#         MONGODB_URL = os.getenv('MONGODB_URL')
+#         client = MongoClient(MONGODB_URL)
+#         db = client.sample_analytics
+#         customers = db.customers
+
+#         # Your query here
+#         result = customers.find({...})
+
+#         # Process and display results
+#         for doc in result:
+#             print(doc)
+#         ```
+
+#         ## Query Approach
+#         1. **Analyze** the user's question intent
+#         2. **Identify** relevant fields and query type
+#         3. **Generate** Python code with appropriate MongoDB query
+#         4. **Execute** using UnsafeLocalCodeExecutor
+#         5. **Interpret** results and provide insights
+#         6. **Suggest** relevant follow-up questions
+
+#         ## Query Types
+#         - **Filter**: Find customers matching criteria
+#         - **Aggregation**: Group, count, sum customer data
+#         - **Analysis**: Demographic breakdowns, tier distributions
+#         - **Lookup**: Specific customer information
+
+#         ## Response Guidelines
+#         - Always use the UnsafeLocalCodeExecutor tool for database operations
+#         - Provide clear explanations of findings
+#         - Include relevant metrics and percentages
+#         - Handle missing or null data appropriately
+#         - Suggest actionable next steps or follow-up questions
+#         - Format responses in a conversational, business-friendly manner
+
+#         ## Error Handling
+#         - Validate field names against the schema
+#         - Provide helpful error messages for failed queries
+#         - Suggest alternative approaches for unclear requests
+#         - Handle edge cases like empty results gracefully
+
+#         ## Security Notes
+#         - Never expose sensitive customer data unnecessarily
+#         - Limit result sets for performance
+#         - Validate all inputs before querying
+#     """,
+#     code_executor=UnsafeLocalCodeExecutor(),
+#     output_key="summary",
+# )
+
+
 query_planner_agent = LlmAgent(
     name="query_planner_agent",
     model="gemini-2.0-flash",
     description="plans the mongodb query as per user questions",
     instruction="""
-        Role: Analyze user questions and plan what data to get.
-        What you do:
+        You are a query planning specialist for MongoDB analytics. Your job is to analyze user questions about the sample_analytics database and create a detailed execution plan.
+        The database contains three collections with nested structures:
 
-        Read the user's question
-        Look at the {user_data_example} provided in context
-        Identify query type and plan approach
-        Tell Agent 2 what to execute
+        accounts: Contains account_id, limit, and products (array)
+        customers: Contains username, name, address, birthdate (date object), email, accounts (array), and tier_and_details (nested object with dynamic keys containing tier, benefits array, active status, and id)
+        transactions: Contains account_id, transaction_count, bucket dates (date objects), and transactions (array of objects with date, amount, transaction_code, symbol, price, total)
 
-        Query Types to Handle:
+        Pay special attention to nested fields like tier_and_details objects, transaction arrays, and MongoDB date formats when planning queries.
+        When you receive a user question, analyze what type of query it is (definition, filter, aggregation, trend analysis, comparison, etc.) and break it down into clear steps. Consider which collections need to be accessed, what fields are required, whether joins are needed, what aggregation operations might be necessary, and how to handle nested structures.
+        For nested fields, specify:
 
-        Definitions: "What is X?" - Get field descriptions, counts, examples
-        Filters: "Show me users who..." - Filter by conditions, nested field matching
-        Aggregations: "How many/average/total..." - Count, sum, average, group operations
-        Trends: "Over time/by age/by tier..." - Group by time periods, demographics, tiers
-        Comparisons: "Compare X vs Y" - Side-by-side analysis, differences, ratios
+        How to access tier_and_details with dynamic keys
+        How to query within transactions arrays
+        How to handle date objects and date range queries
+        When to use $unwind for arrays or $elemMatch for array elements
 
-        For nested data planning:
+        Create a step-by-step plan in python that explains:
 
-        Identify if nested objects need flattening (tier_and_details, benefits arrays)
-        Plan aggregation pipelines for complex nested structures
-        Consider empty nested objects in your planning
-        Plan for dynamic object keys that vary per document
+        Which collections to query
+        What fields to extract or filter on
+        What aggregation operations are needed
+        How to structure the MongoDB query
+        Expected output format
 
-        Output: Simple plan with query type, required operations, and processing steps.
+        Your plan should be detailed enough for the next agent to build the actual MongoDB query.
     """,
     output_key="plan",
 )
@@ -100,41 +203,21 @@ query_builder_agent = LlmAgent(
     model="gemini-2.0-flash",
     description="Connects to MongoDB and retrieves data based on user queries",
     instruction="""
-        Role: Connect to database and get the data.
-        What you do:
-        
-        load {plan}
-        FIRST: Load MONGODB_URI from .env file - Always read environment variables
-        Connect to MongoDB using the MONGODB_URI from .env
-        Execute based on query type from Agent 1
-        Process the results appropriately
-        Handle any errors
-        Return clean data to Agent 3
+        You are a Python MongoDB query construction specialist. You receive a detailed {plan} from the query planner and build actual Python code using PyMongo to execute against the MongoDB cluster.
+        Use the {plan} plan variable that contains the execution strategy from the previous agent. You have access to UnsafeLocalCodeExecutor to run Python code that connects to the MongoDB cluster.
+        The MongoDB connection URL is stored in the environment variable MONGODB_URL. Use PyMongo library to connect to the sample_analytics database and execute queries on the accounts, customers, and transactions collections.
+        Based on the plan, write Python code using PyMongo syntax that:
 
-        Database Connection:
+        Imports necessary libraries (pymongo, os, datetime, etc.)
+        Connects to MongoDB using: client = pymongo.MongoClient(os.getenv('MONGODB_URL'))
+        Accesses the database: db = client.sample_analytics
+        Uses PyMongo methods like db.collection.find(), db.collection.aggregate(), etc.
+        Handles nested fields like tier_and_details objects, transactions arrays, and date objects
+        Uses appropriate PyMongo operators and syntax (not JavaScript MongoDB syntax)
+        Converts results to Python lists/dicts using list(cursor) when needed
+        Stores results in a variable called database_results
 
-        Read .env file to get MONGODB_URI
-        Use MONGODB_URI environment variable for connection
-        Connect to the 'sample_analytics' collection
-        Handle connection errors if .env or URI is missing
-
-        Execution by Query Type:
-
-        Definitions: Use find() or simple aggregation for samples and field info
-        Filters: Use $match with nested field queries when needed
-        Aggregations: Use $group, $count, $sum, $avg with proper grouping
-        Trends: Use $group with date/demographic fields, $sort for ordering
-        Comparisons: Use $facet or multiple aggregations, calculate differences
-
-        For nested data execution:
-
-        Use aggregation pipelines, not simple find() for complex queries
-        Convert objects with dynamic keys using $objectToArray
-        Use $unwind to process nested arrays and objects
-        Handle empty nested objects with preserveNullAndEmptyArrays: true
-        Chain multiple pipeline stages for complex nesting
-
-        Important: Always start by loading environment variables. Don't hardcode database connections.
+        You MUST use UnsafeLocalCodeExecutor tool to run your Python code. Execute the code immediately after writing it to get the actual query results from the MongoDB database. Do NOT generate JavaScript MongoDB queries - only Python PyMongo code. The database_results variable from your code execution will be passed to the next agent.
     """,
     code_executor=UnsafeLocalCodeExecutor(),
     output_key="database_results",
@@ -145,29 +228,18 @@ query_answerer_agent = LlmAgent(
     model="gemini-2.0-flash",
     description="Provides natural language responses based on database query results",
     instruction="""
-        Role: Turn technical results into user-friendly answers.
-        What you do:
+        You are a data analyst who interprets MongoDB query results and provides clear, user-friendly answers.
+        You receive the {database_results} variable from the query builder agent containing the raw MongoDB query output. Your job is to analyze these results and provide a comprehensive answer to the original user question.
+        Transform the raw database results into:
 
-        read {database_results}
-        Answer based on the original query type
-        Format appropriately for the question asked
-        Suggest follow-ups if helpful
+        Clear, natural language explanations
+        Relevant insights and patterns
+        Formatted data presentations when appropriate
+        Summary statistics or key findings
+        Visual descriptions of trends or relationships
 
-        Response by Query Type:
-
-        Definitions: Explain what fields mean, provide examples, show data structure
-        Filters: Present filtered results clearly, mention total counts
-        Aggregations: Show numbers with context, percentages, summaries
-        Trends: Present patterns, highlight key insights, use time/demographic context
-        Comparisons: Show side-by-side results, highlight differences, explain significance
-
-        Keep responses:
-
-        Simple and direct for the query type
-        Use business language, not technical terms
-        Include relevant numbers and context
-        Actionable when appropriate
-
+        Make your response accessible to users who may not be familiar with database structures. Focus on answering their original question directly while highlighting any interesting insights found in the data.
+        If the results are empty or indicate an error, explain what might have gone wrong and suggest alternative approaches.
     """,
     output_key="response",
 )
@@ -213,9 +285,11 @@ async def websocket_chat(
     try:
         await websocket.accept()
 
-        sample_users = get_few_users_from_sample_analytics(limit=5)
+        # sample_users = get_few_users_from_sample_analytics(limit=5)
 
-        initial_state = {"user_data_example": sample_users}
+        initial_state = {
+            # "user_data_example": sample_users
+        }
 
         session_id = str(uuid.uuid4())
 
@@ -297,6 +371,7 @@ async def websocket_chat(
                 if updated_session is None:
                     raise HTTPException(status_code=404, detail="Session not found")
 
+                # output = session_state_dict["response"]
                 output = session_state_dict["response"]
 
                 print("-------------------\n")
