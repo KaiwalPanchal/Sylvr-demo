@@ -75,6 +75,12 @@ query_planner_agent = LlmAgent(
         transactions: Contains account_id, transaction_count, bucket dates (date objects), and transactions (array of objects with date, amount, transaction_code, symbol, price, total)
 
         Pay special attention to nested fields like tier_and_details objects, transaction arrays, and MongoDB date formats when planning queries.
+        Query Validation: Before creating a plan, check if the user's question is:
+
+        Ambiguous: If the question is unclear or could have multiple interpretations, ask for clarification
+        Impossible: If the requested data doesn't exist in the database schema, explain what's available instead
+        Invalid: If the query asks for operations that don't make sense (e.g., mathematical operations on text fields)
+
         When you receive a user question, analyze what type of query it is (definition, filter, aggregation, trend analysis, comparison, etc.) and break it down into clear steps. Consider which collections need to be accessed, what fields are required, whether joins are needed, what aggregation operations might be necessary, and how to handle nested structures.
         For nested fields, specify:
 
@@ -83,7 +89,7 @@ query_planner_agent = LlmAgent(
         How to handle date objects and date range queries
         When to use $unwind for arrays or $elemMatch for array elements
 
-        Create a step-by-step plan in python that explains:
+        Create a step-by-step plan that explains:
 
         Which collections to query
         What fields to extract or filter on
@@ -91,7 +97,7 @@ query_planner_agent = LlmAgent(
         How to structure the MongoDB query
         Expected output format
 
-        Your plan should be detailed enough for the next agent to build the actual MongoDB query.
+        If the query is impossible or ambiguous, explain the issue and suggest alternatives. Your plan should be detailed enough for the next agent to build the actual MongoDB query.
     """,
     output_key="plan",
 )
@@ -101,10 +107,10 @@ query_builder_agent = LlmAgent(
     model="gemini-2.0-flash",
     description="Connects to MongoDB and retrieves data based on user queries",
     instruction="""
-        You are a Python MongoDB query construction specialist. You receive a detailed {plan} from the query planner and build actual Python code using PyMongo to execute against the MongoDB cluster.
-        Use the {plan} plan variable that contains the execution strategy from the previous agent. You have access to UnsafeLocalCodeExecutor to run Python code that connects to the MongoDB cluster.
+        You are a Python MongoDB query construction specialist. You receive a detailed plan {plan} from the query planner and build actual Python code using PyMongo to execute against the MongoDB cluster.
+        Use the {plan} that contains the execution strategy from the previous agent. You have access to UnsafeLocalCodeExecutor to run Python code that connects to the MongoDB cluster.
         The MongoDB connection URL is stored in the environment variable MONGODB_URL. Use PyMongo library to connect to the sample_analytics database and execute queries on the accounts, customers, and transactions collections.
-        Based on the plan, write Python code using PyMongo syntax that:
+        Based on the plan, write complete Python code using PyMongo syntax that:
 
         Imports necessary libraries (pymongo, os, datetime, etc.)
         Connects to MongoDB using: client = pymongo.MongoClient(os.getenv('MONGODB_URL'))
@@ -113,9 +119,41 @@ query_builder_agent = LlmAgent(
         Handles nested fields like tier_and_details objects, transactions arrays, and date objects
         Uses appropriate PyMongo operators and syntax (not JavaScript MongoDB syntax)
         Converts results to Python lists/dicts using list(cursor) when needed
-        Stores results in a variable called database_results
+        Includes proper error handling with try/except blocks
+        Validates the plan is executable before attempting the query
+        Prints the results
+        Shows the actual count and sample of results for debugging
 
-        You MUST use UnsafeLocalCodeExecutor tool to run your Python code. Execute the code immediately after writing it to get the actual query results from the MongoDB database. Do NOT generate JavaScript MongoDB queries - only Python PyMongo code. The database_results variable from your code execution will be passed to the next agent.
+        Error Handling: Your code must handle:
+
+        Connection failures: MongoDB connection issues
+        Invalid queries: Malformed aggregation pipelines or query syntax
+        Empty results: When no data matches the criteria
+        Plan execution issues: If the plan from the previous agent is unclear or impossible to implement
+
+        If the plan cannot be executed, set database_results to an error message explaining the issue and suggest what information is actually available.
+        Write the complete Python code first, then immediately execute it using UnsafeLocalCodeExecutor. Make sure your code actually runs and produces real results from the MongoDB database. If there are errors, fix them and re-execute. Do NOT just return empty results or "```". The database_results variable from your successful code execution will be passed to the next agent.
+        Example structure:
+        pythonimport pymongo
+        import os
+
+        try:
+            client = pymongo.MongoClient(os.getenv('MONGODB_URL'))
+            db = client.sample_analytics
+            
+            # Your query logic here based on the plan
+            results = list(db.customers.find(...))  # or aggregate
+            
+            database_results = results
+            print(f"Found {len(results)} results")
+            if results:
+                print("Sample result:", results[0])
+                
+        except Exception as e:
+            print(f"Error: {e}")
+            database_results = []
+            
+        **you must use code executor if there is a valid plan, if there is an error. you may pass it on to next agent directly repeating the issues discused in {plan} **
     """,
     code_executor=UnsafeLocalCodeExecutor(),
     output_key="database_results",
@@ -128,7 +166,13 @@ query_answerer_agent = LlmAgent(
     instruction="""
         You are a data analyst who interprets MongoDB query results and provides clear, user-friendly answers.
         You receive the {database_results} variable from the query builder agent containing the raw MongoDB query output. Your job is to analyze these results and provide a comprehensive answer to the original user question.
-        Transform the raw database results into:
+        Error Handling: First check if {database_results} contains:
+
+        Error messages: If the previous agent encountered issues, explain the problem and suggest alternatives
+        Empty results: If no data was found, explain why and suggest related queries that might have data
+        Invalid data: If the results seem incorrect or malformed, point this out
+
+        Transform valid database results into:
 
         Clear, natural language explanations
         Relevant insights and patterns
@@ -136,8 +180,14 @@ query_answerer_agent = LlmAgent(
         Summary statistics or key findings
         Visual descriptions of trends or relationships
 
+        Query Validation: If the original query was problematic:
+
+        Explain what went wrong (ambiguous request, missing data, impossible operation)
+        Suggest what information is actually available in the database
+        Offer alternative queries that could provide useful insights
+
         Make your response accessible to users who may not be familiar with database structures. Focus on answering their original question directly while highlighting any interesting insights found in the data.
-        If the results are empty or indicate an error, explain what might have gone wrong and suggest alternative approaches.
+        If the results indicate technical issues (connection problems, query errors), explain these in simple terms and suggest next steps.
     """,
     output_key="response",
 )
@@ -148,6 +198,7 @@ ROOT_AGENT = SequentialAgent(
     sub_agents=[query_planner_agent, query_builder_agent, query_answerer_agent],
     description="this is start of every conversation, it handles the sequence of agents for fetching data from mongodb and then answering user query",
 )
+
 
 agent = ROOT_AGENT
 
