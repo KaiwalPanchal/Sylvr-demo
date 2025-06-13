@@ -1,36 +1,61 @@
-# export_to_json.py
-import os
-import json
-from dotenv import load_dotenv
 from pymongo import MongoClient
-from bson.json_util import dumps
+import os  # Import os to access environment variables if MONGODB_URL is set that way
+
+# The aggregation pipeline
+pipeline = [
+    {"$match": {"account_id": 794875}},
+    {"$unwind": "$transactions"},
+    {"$match": {"transactions.transaction_code": "sell"}},
+    {
+        "$group": {
+            "_id": None,
+            "total_sell_transactions": {"$sum": 1},
+        }
+    },
+    {"$project": {"_id": 0, "total_sell_transactions": 1}},
+]
+
+# --- MongoDB Connection Details ---
+# Ideally, put your MONGODB_URI in environment variable for security
+# If not, fallback to hardcoded (for testing only)
+
+MONGODB_URI = os.getenv(
+    "MONGODB_URI",
+    "mongodb+srv://fakeslakke:B8PYEtEguzChJCsr@cluster0.ghuc7qq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+)
+DB_NAME = "sample_analytics"
+COLLECTION_NAME = "transactions"
+
+client = None
+
+try:
+    # 1. Establish connection to MongoDB
+    client = MongoClient(MONGODB_URI)
+    db = client[DB_NAME]
+    collection = db[COLLECTION_NAME]
+
+    print(f"Using database: '{DB_NAME}', collection: '{COLLECTION_NAME}'")
+
+    # 2. Execute the aggregation pipeline
+    results_cursor = collection.aggregate(pipeline)
+
+    # 3. Process and print the results
+    found_results = False
+    for doc in results_cursor:
+        print("\nQuery Result:", doc)
+        found_results = True
+
+    if not found_results:
+        print(
+            "\nNo documents found matching the criteria. 'total_sell_transactions' would be 0."
+        )
 
 
-def export_db_to_json(output_file="sample_analytics.json"):
-    load_dotenv()
-    uri = os.getenv("MONGODB_URI")
-    if not uri:
-        raise ValueError("🔴 MONGODB_URI not found in .env")
+except Exception as e:
+    print(f"\nAn error occurred during MongoDB operation: {e}")
 
-    client = MongoClient(uri)
-    db = client["sample_analytics"]
-
-    full_data = {}
-    for coll_name in db.list_collection_names():
-        docs = list(db[coll_name].find({}))
-        # dumps handles BSON types properly :contentReference[oaicite:1]{index=1}
-        json_str = dumps(docs, indent=2)
-        full_data[coll_name] = json.loads(json_str)
-
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(full_data, f, indent=2, ensure_ascii=False)
-
-    client.close()
-    print(f"✅ Exported {len(full_data)} collections to '{output_file}'")
-
-
-if __name__ == "__main__":
-    try:
-        export_db_to_json()
-    except Exception as e:
-        print("Error:", e)
+finally:
+    # 4. Close the connection
+    if client:
+        client.close()
+        print("\nMongoDB connection closed.")
