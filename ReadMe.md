@@ -119,3 +119,86 @@ The frontend will be available at `http://localhost:3000`
 
 ### 5
 ![q5](q5.png)
+
+
+Possible Approach to Implement World Model Dashboard
+Originally, the pipeline consisted of 3 components which were called in sequence:
+
+Planner Agent:
+Determining the overall objective and framing a plan for retrieving information.
+
+Query Builder Agent:
+Translating the plan into a precise database query.
+
+Answerer Agent:
+Fetching the data, formulating the final answer, and adding it back into conversation context.
+
+Improvement Ideas (If There Was More Time)
+1. Integrate World Model into Planner
+Originally, the planner only decided how to proceed with a query.
+To implement a world model, I would:
+
+Extract user intent alongside the plan.
+
+Produce a structured output, adding a new key (e.g. extraction_objective) to reflect the true intent of the question.
+
+For example:
+
+json
+Copy
+Edit
+{
+  "plan": "Query transactions for total amount in Q1 2021",
+  "extraction_objective": "Analyze total Q1 transactions to find spending trends"
+}
+This objective would be stored in state alongside the conversation context.
+
+2. Database Gap and Sentiment Analysis in Answerer
+Instead of adding separate components, we can reuse the Answerer to perform additional tasks:
+
+Gap Analysis:
+Identify if the database has gaps or missing information.
+
+Sentiment Analysis:
+Analyze the conversation’s tone and sentiment (confused, neutral, frustrated).
+
+For example:
+
+json
+Copy
+Edit
+{
+  "answer": "Here are total transactions for Q1 2021",
+  "gap": "No transactions were found for Q1 2021",
+  "sentiment": "neutral"
+}
+3. Real-Time Storage to Database
+Using the session ID, we can persist conversations to MongoDB in real time.
+This lets us:
+
+Keep a complete history of messages, plans, answers, gaps, and sentiment signals.
+
+Query this data later for diagnostics and improvement (such as frequently confusing questions).
+
+Summary
+Instead of adding separate components or making additional API calls, we can:
+
+Integrate the world model directly into the existing pipeline.
+
+Produce enriched, structured output at each step.
+
+Store these conversations in a datastore alongside Q&A.
+
+This lets us perform powerful real-time and post-hoc analysis with minimal redundancy and effort.
+
+If implemented, we can quickly build a World Model Dashboard — a view into:
+
+User intent trends
+
+Database gaps
+
+Sentiment signals
+
+Query patterns over time
+
+This information can guide future improvements in both the knowledge base and the agent's capabilities.
