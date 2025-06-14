@@ -1,1 +1,10 @@
-python -m pip install "pymongo[srv]==3.12"
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+openai-whisper==20231117
+gTTS==2.5.1
+python-dotenv==1.0.1
+pymongo==4.6.1
+google-generativeai==0.3.2
+pydantic==2.6.1
+websockets==12.0
