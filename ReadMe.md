@@ -38,6 +38,7 @@ pip install -r requirements.txt
 3. Create a `.env` file in the root directory with your MongoDB connection string:
 ```
 MONGODB_URL=your_mongodb_connection_string
+GOOGLE_API_KEY=yourapikey
 ```
 
 4. Start the backend server:
