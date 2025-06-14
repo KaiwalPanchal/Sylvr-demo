@@ -1,4 +1,4 @@
-# Sylvr Chatbot
+# Sylvr TakeHome assesment Chatbot
 
 A modern chatbot application with voice input/output capabilities, built with Next.js, FastAPI, and MongoDB.
 
@@ -8,7 +8,6 @@ A modern chatbot application with voice input/output capabilities, built with Ne
 - Voice input with automatic transcription using Whisper
 - Text-to-speech output using Google TTS
 - MongoDB integration for data storage
-- Modern UI with dark mode
 
 ## Prerequisites
 
