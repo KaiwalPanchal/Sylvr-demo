@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Send, Mic, MicOff } from "lucide-react";
+import { Send, Mic, MicOff, Volume2 } from "lucide-react";
 
 interface Message {
   id: number;
@@ -240,6 +240,12 @@ export default function ChatBot() {
     }
   };
 
+  const speakMessage = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
+  };
+
   return (
     <div className="min-h-screen bg-black text-white p-4">
       <div className="w-full h-screen flex flex-col">
@@ -258,7 +264,19 @@ export default function ChatBot() {
                     : "bg-gray-800 text-white"
                 }`}
               >
-                <p>{message.text}</p>
+                <div className="flex items-center gap-2">
+                  <p>{message.text}</p>
+                  {!message.isUser && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-gray-400 hover:text-white"
+                      onClick={() => speakMessage(message.text)}
+                    >
+                      <Volume2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </Card>
             </div>
           ))}
