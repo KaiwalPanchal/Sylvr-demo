@@ -105,12 +105,17 @@ The frontend will be available at `http://localhost:3000`
 
 ## Sample Questions
 
+### 1
 ![q1](q1.png)
 
+### 2
 ![q2](q2.png)
 
+### 3
 ![q3](q3.png)
 
+### 4
 ![q4](q4.png)
 
+### 5
 ![q5](q5.png)
