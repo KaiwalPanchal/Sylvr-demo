@@ -134,7 +134,7 @@ Answerer Agent:
 Fetching the data, formulating the final answer, and adding it back into conversation context.
 
 Improvement Ideas (If There Was More Time)
-1. Integrate World Model into Planner
+## 1. Integrate World Model into Planner
 Originally, the planner only decided how to proceed with a query.
 To implement a world model, I would:
 
@@ -144,16 +144,17 @@ Produce a structured output, adding a new key (e.g. extraction_objective) to ref
 
 For example:
 
+```
 json
-Copy
-Edit
 {
   "plan": "Query transactions for total amount in Q1 2021",
   "extraction_objective": "Analyze total Q1 transactions to find spending trends"
 }
+```
+
 This objective would be stored in state alongside the conversation context.
 
-2. Database Gap and Sentiment Analysis in Answerer
+## 2. Database Gap and Sentiment Analysis in Answerer
 Instead of adding separate components, we can reuse the Answerer to perform additional tasks:
 
 Gap Analysis:
@@ -164,15 +165,17 @@ Analyze the conversation’s tone and sentiment (confused, neutral, frustrated).
 
 For example:
 
-json
-Copy
-Edit
-{
-  "answer": "Here are total transactions for Q1 2021",
-  "gap": "No transactions were found for Q1 2021",
-  "sentiment": "neutral"
-}
-3. Real-Time Storage to Database
+```
+    json
+    {
+    "answer": "Here are total transactions for Q1 2021",
+    "gap": "No transactions were found for Q1 2021",
+    "sentiment": "neutral"
+    }
+```
+
+## 3. Real-Time Storage to Database
+
 Using the session ID, we can persist conversations to MongoDB in real time.
 This lets us:
 
