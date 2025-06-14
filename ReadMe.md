@@ -46,7 +46,7 @@ MONGODB_URL=your_mongodb_connection_string
 uvicorn chatbot.main:app --host 0.0.0.0 --port 8000
 
 # In a separate terminal, start the TTS server
-uvicorn TTS:app --host 0.0.0.0 --port 8001
+uvicorn TTS:app --host 0.0.0.0 --port 8001 (not working right now)
 ```
 
 ### Frontend Setup
